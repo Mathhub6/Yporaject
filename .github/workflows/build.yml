@@ -5,12 +5,13 @@ on:
     types: [created]
   schedule:
     - cron: '0 6 * * 6'  # 每周六6点
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   release_node_inject:
     name: release node_inject ${{ matrix.target }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'schedule'
+    if: github.event_name == 'release' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -33,7 +34,7 @@ jobs:
   release_license-gen:
     name: release license-gen ${{ matrix.target }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'schedule'
+    if: github.event_name == 'release' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
