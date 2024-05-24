@@ -8,49 +8,79 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  release_node_inject:
-    name: release node_inject ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+  build:
+    name: build
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
+        build: [linux, windows]
         include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz
+          - build: linux
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+            archive-name: NodeInject-linux.tar.gz
+          - build: windows
+            os: windows-latest
+            rust: stable-x86_64-msvc
+            target: x86_64-pc-windows-msvc
+            archive-name: NodeInject-windows.7z
+      fail-fast: false
     steps:
-      - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 检出代码仓库
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          ARCHIVE_NAME: node_inject_${{ matrix.target }}
+          repository: Mathhub6/NodeInject_gene
           
-  release_license-gen:
-    name: release license-gen ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz
-    steps:
-      - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 检出仓库的 js 目录到指定路径
+      - name: Checkout repository 
+        uses: actions/checkout@v4
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
-          SRC_DIR: "license-gen"
-          ARCHIVE_NAME: license-gen_${{ matrix.target }}
+          path: './js'
+          
+      # 安装 Rust 工具链
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+          
+      - name: Build binary
+        shell: bash
+        run: |
+          cp -f ./js/hook.js ./src/hooklog.js
+          cargo build --verbose -r --target ${{ matrix.target }}
+          cd ./js/license-gen/
+          cargo build --verbose -r --target ${{ matrix.target }}
+          cd ../.. 
+        env:
+          RUST_BACKTRACE: 1
+
+      # 构建归档文件
+      - name: Build archive
+        shell: bash
+        run: |
+          mkdir archive
+          cp LICENSE README.md archive/
+          ls -lR
+          if [ "${{ matrix.build }}" = "windows" ]; then
+            cp "./target/${{ matrix.target }}/release/node_inject.exe" ./archive
+            cp "./js/license-gen/target/${{ matrix.target }}/release/license-gen.exe" ./archive/
+            cd archive
+            7z a "${{ matrix.archive-name }}" LICENSE README.md node_inject.exe license-gen.exe
+          else
+            cp "./target/${{ matrix.target }}/release/node_inject" ./archive/
+            cp "./js/license-gen/target/${{ matrix.target }}/release/license-gen" ./archive/
+            cd archive
+            tar -czf "${{ matrix.archive-name }}" LICENSE README.md node_inject license-gen
+          fi
+
+      # 上传归档文件
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive-name }}
+          path: archive/${{ matrix.archive-name }}
