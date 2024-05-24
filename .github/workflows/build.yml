@@ -4,42 +4,28 @@ on:
   release:
     types: [created]
   schedule:
-    - cron: '0 6 * * 6'  # 每周六6点
+    - cron: '0 6 * * 6'  # Every Saturday at 6:00 AM
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  build:
-    name: build
-    runs-on: ${{ matrix.os }}
+  release_node_inject:
+    name: release node_inject ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     strategy:
-      matrix:
-        build: [linux, windows]
-        include:
-          - build: linux
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-musl
-            archive-name: NodeInject-linux.tar.gz
-          - build: windows
-            os: windows-latest
-            rust: stable-x86_64-msvc
-            target: x86_64-pc-windows-msvc
-            archive-name: NodeInject-windows.7z
       fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-gnu
+            archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz
     steps:
-      # 检出代码仓库
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           repository: Mathhub6/NodeInject_gene
-          
-      # 检出仓库的 js 目录到指定路径
-      - name: Checkout repository 
-        uses: actions/checkout@v4
-        with:
-          path: './js'
-          
-      # 安装 Rust 工具链
+
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -47,25 +33,23 @@ jobs:
           profile: minimal
           override: true
           target: ${{ matrix.target }}
-          
+
       - name: Build binary
         shell: bash
         run: |
-          cp -f ./js/hook.js ./src/hooklog.js
+          cp -f ./js/hook.js ./src/hooklog.js  # Copy hook.js to src directory
           cargo build --verbose -r --target ${{ matrix.target }}
-          cd ./js/license-gen/
-          cargo build --verbose -r --target ${{ matrix.target }}
-          cd ../.. 
-        env:
-          RUST_BACKTRACE: 1
 
-      # 构建归档文件
+      - name: Generate and compile license-gen
+        run: |
+          cd js/license-gen/
+          cargo build --verbose -r --target ${{ matrix.target }}
+          cd ../..
+
       - name: Build archive
-        shell: bash
         run: |
           mkdir archive
           cp LICENSE README.md archive/
-          ls -lR
           if [ "${{ matrix.build }}" = "windows" ]; then
             cp "./target/${{ matrix.target }}/release/node_inject.exe" ./archive
             cp "./js/license-gen/target/${{ matrix.target }}/release/license-gen.exe" ./archive/
@@ -74,11 +58,9 @@ jobs:
           else
             cp "./target/${{ matrix.target }}/release/node_inject" ./archive/
             cp "./js/license-gen/target/${{ matrix.target }}/release/license-gen" ./archive/
-            cd archive
             tar -czf "${{ matrix.archive-name }}" LICENSE README.md node_inject license-gen
           fi
 
-      # 上传归档文件
       - name: Upload archive
         uses: actions/upload-artifact@v4
         with:
