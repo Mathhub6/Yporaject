@@ -1,14 +1,16 @@
 # .github/workflows/release.yml
-name: Yporaject  CI
+name: Yporaject CI
 on: 
   release:
     types: [created]
-    
+  schedule:
+    - cron: '0 6 * * 6'  # 每周六6点
+
 jobs:
   release_node_inject:
     name: release node_inject ${{ matrix.target }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || github.event_name == 'schedule'
     strategy:
       fail-fast: false
       matrix:
@@ -31,7 +33,7 @@ jobs:
   release_license-gen:
     name: release license-gen ${{ matrix.target }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || github.event_name == 'schedule'
     strategy:
       fail-fast: false
       matrix:
@@ -51,18 +53,3 @@ jobs:
           ARCHIVE_TYPES: ${{ matrix.archive }}
           SRC_DIR: "license-gen"
           ARCHIVE_NAME: license-gen_${{ matrix.target }}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
