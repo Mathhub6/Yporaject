@@ -37,7 +37,7 @@ jobs:
       - name: Build binary
         shell: bash
         run: |
-          cp -f ./js/hook.js ./src/hooklog.js  # Copy hook.js to src directory
+          cp -f ./src/hook.js ./src/hooklog.js  # Copy hook.js to src directory
           cargo build --verbose -r --target ${{ matrix.target }}
 
       - name: Generate and compile license-gen
