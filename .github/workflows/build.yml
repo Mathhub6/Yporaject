@@ -24,7 +24,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: Mathhub6/NodeInject_gene
+          repository: Mathhub6/Yporaject
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          target: ${{ matrix.target }}
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v2
+        with:
+          node-version: 20
+          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: Mathhub6/Yporaject
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
